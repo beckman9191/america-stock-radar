@@ -10,13 +10,20 @@ from plotly.subplots import make_subplots
 @st.cache_data(ttl=86400)
 def fetch_all_us_tickers():
     url = "https://www.sec.gov/files/company_tickers.json"
-    headers = {'User-Agent': 'Mozilla/5.0'}
+    # 🌟 关键修复：SEC 官方要求必须提供类似 "App名称/版本 (邮箱)" 格式的 User-Agent 才能放行全量数据
+    headers = {
+        'User-Agent': 'QuantRadarBot/1.0 (quant_radar_admin@example.com) Mozilla/5.0',
+        'Accept-Encoding': 'gzip, deflate'
+    }
     try:
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, headers=headers, timeout=15)
         response.raise_for_status()
         data = response.json()
+        # 组装成 "AAPL - Apple Inc." 格式
         return {f"{item['ticker']} - {item['title'].title()}": item['ticker'] for item in data.values()}
-    except:
+    except Exception as e:
+        # 如果依然失败，提示错误并返回备用列表
+        st.sidebar.error("拉取 SEC 全量美股列表失败，目前使用的是备用精选池。")
         return {f"{t}": t for t in ["AAPL", "MSFT", "GOOGL", "NVDA", "TSLA", "COIN", "CRCL", "UPST", "RDDT"]}
 
 @st.cache_data(ttl=3600)
@@ -28,11 +35,9 @@ def load_data(ticker, start_date, end_date):
     return df
 
 def process_us_strategy(df, ticker, display_days):
-    # 保护性拦截：只有少于20天的数据连基础波幅都算不出，才直接跳过
     if len(df) <= 20:
         return df, [], [], [], []
 
-    # 1. 核心指标流水线计算
     delta = df['Close'].diff()
     rs = delta.clip(lower=0).ewm(com=13, adjust=False).mean() / (-1 * delta.clip(upper=0)).ewm(com=13, adjust=False).mean()
     df['RSI_14'] = 100 - (100 / (1 + rs))
@@ -44,24 +49,16 @@ def process_us_strategy(df, ticker, display_days):
     df['Vol_SMA_20'] = df['Volume'].rolling(20).mean()
     df['Vol_Spike'] = df['Volume'] / df['Vol_SMA_20']
 
-    # 🌟 双均线计算 (次新股自适应) 🌟
     df['SMA_20'] = df['Close'].rolling(20).mean()
     if len(df) < 200:
-        df['SMA_200'] = df['Close'].expanding().mean() # 不满200天用上市至今均线
+        df['SMA_200'] = df['Close'].expanding().mean()
     else:
         df['SMA_200'] = df['Close'].rolling(200).mean()
 
-    # 🌟 ATR动态波幅计算 🌟
-    high_low = df['High'] - df['Low']
-    high_close = np.abs(df['High'] - df['Close'].shift(1))
-    low_close = np.abs(df['Low'] - df['Close'].shift(1))
-    tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+    tr = pd.concat([df['High']-df['Low'], np.abs(df['High']-df['Close'].shift(1)), np.abs(df['Low']-df['Close'].shift(1))], axis=1).max(axis=1)
     df['ATR_20'] = tr.rolling(20).mean()
     df['ATR_Ratio'] = (df['Close'] - df['SMA_20']) / df['ATR_20']
 
-    # ==========================================
-    # 🟢 基础左侧买入信号判定
-    # ==========================================
     bull_dip = (df['Close'] >= df['SMA_200']) & (df['ATR_Ratio'] < -2.0)
     bear_plunge = (df['Close'] < df['SMA_200']) & (df['ATR_Ratio'] < -3.0)
 
@@ -72,67 +69,24 @@ def process_us_strategy(df, ticker, display_days):
         (bull_dip | bear_plunge)
     ).astype(int)
 
-    valid_buy_indices = []
-    last_buy_price = None
-    last_buy_idx = None
-    PRICE_STEP = 0.90
-    RESET_DAYS = 30
-
+    valid_buy_indices, last_buy_price, last_buy_idx = [], None, None
     for i in range(len(df)):
         if df['Buy_Base_Signal'].iloc[i] == 1:
-            current_price = df['Close'].iloc[i]
-            if last_buy_idx is not None and (i - last_buy_idx) > RESET_DAYS:
-                last_buy_price = None
+            curr_p = df['Close'].iloc[i]
+            if last_buy_idx is not None and (i - last_buy_idx) > 30: last_buy_price = None
+            if last_buy_price is None or curr_p <= last_buy_price * 0.90:
+                valid_buy_indices.append(i); last_buy_price, last_buy_idx = curr_p, i
 
-            if last_buy_price is None:
-                valid_buy_indices.append(i)
-                last_buy_price = current_price
-                last_buy_idx = i
-            else:
-                if current_price <= last_buy_price * PRICE_STEP:
-                    valid_buy_indices.append(i)
-                    last_buy_price = current_price
-                    last_buy_idx = i
-
-    # ==========================================
-    # 🔴 卖出逃顶信号判定
-    # ==========================================
-    RSI_SELL_THRESHOLD = 75
-    VOL_SPIKE_SELL = 2.0
-    ATR_SELL_THRESHOLD = 2.0
-    WMSR_SELL_THRESHOLD = -15
-
-    df['Sell_Base_Signal'] = (
-        (df['RSI_14'] > RSI_SELL_THRESHOLD) &
-        (df['Vol_Spike'] > VOL_SPIKE_SELL) &
-        (df['ATR_Ratio'] > ATR_SELL_THRESHOLD) &
-        (df['WMSR_14'] > WMSR_SELL_THRESHOLD)
-    ).astype(int)
-
-    valid_sell_indices = []
-    last_sell_price = None
-    last_sell_idx = None
-    SELL_PRICE_STEP = 1.10
-    SELL_RESET_DAYS = 20
-
+    df['Sell_Base_Signal'] = ((df['RSI_14'] > 75) & (df['Vol_Spike'] > 2.0) & (df['ATR_Ratio'] > 2.0) & (df['WMSR_14'] > -15)).astype(int)
+    
+    valid_sell_indices, last_sell_price, last_sell_idx = [], None, None
     for i in range(len(df)):
         if df['Sell_Base_Signal'].iloc[i] == 1:
-            current_price = df['Close'].iloc[i]
-            if last_sell_idx is not None and (i - last_sell_idx) > SELL_RESET_DAYS:
-                last_sell_price = None
-            if last_sell_price is None:
-                valid_sell_indices.append(i)
-                last_sell_price = current_price
-                last_sell_idx = i
-            else:
-                if current_price >= last_sell_price * SELL_PRICE_STEP:
-                    valid_sell_indices.append(i)
-                    last_sell_price = current_price
-                    last_sell_idx = i
+            curr_p = df['Close'].iloc[i]
+            if last_sell_idx is not None and (i - last_sell_idx) > 20: last_sell_price = None
+            if last_sell_price is None or curr_p >= last_sell_price * 1.10:
+                valid_sell_indices.append(i); last_sell_price, last_sell_idx = curr_p, i
 
-    # ==========================================
-    # 提取信号与打标签
-    # ==========================================
     cutoff_date = datetime.today().date() - timedelta(days=display_days)
     buy_records, sell_records = [], []
     is_new_stock = len(df) < 200
@@ -141,8 +95,7 @@ def process_us_strategy(df, ticker, display_days):
         row, date = df.iloc[idx], df.index[idx]
         if date.date() >= cutoff_date:
             phase = "Uptrend" if row['Close'] >= row['SMA_200'] else "Downtrend"
-            if is_new_stock:
-                phase += " (不满200天)"
+            if is_new_stock: phase += " (不满200天)"
             buy_records.append({'Date': date.date(), 'Ticker': ticker, 'Action': 'BUY', 'Phase': phase, 'Close': round(row['Close'], 2), 'RSI': round(row['RSI_14'], 2), 'ATR_Ratio': f"{row['ATR_Ratio']:.2f}x"})
             
     for idx in valid_sell_indices:
@@ -171,16 +124,13 @@ def plot_candlestick_plotly(df, ticker, valid_buy_indices, valid_sell_indices, d
     fig.add_trace(go.Bar(x=df.index, y=df['Volume'], name='Volume', marker_color='gray'), row=2, col=1)
 
     if valid_buy_indices:
-        buy_dates = df.iloc[valid_buy_indices].index
-        buy_prices = df['Low'].iloc[valid_buy_indices] * 0.95
+        buy_dates, buy_prices = df.iloc[valid_buy_indices].index, df['Low'].iloc[valid_buy_indices] * 0.95
         fig.add_trace(go.Scatter(x=buy_dates, y=buy_prices, mode='markers', marker=dict(symbol='triangle-up', color='magenta', size=16, line=dict(color='black', width=1.5)), name='BUY (买入)'), row=1, col=1)
         
     if valid_sell_indices:
-        sell_dates = df.iloc[valid_sell_indices].index
-        sell_prices = df['High'].iloc[valid_sell_indices] * 1.05
+        sell_dates, sell_prices = df.iloc[valid_sell_indices].index, df['High'].iloc[valid_sell_indices] * 1.05
         fig.add_trace(go.Scatter(x=sell_dates, y=sell_prices, mode='markers', marker=dict(symbol='triangle-down', color='cyan', size=16, line=dict(color='black', width=1.5)), name='SELL (卖出)'), row=1, col=1)
 
-    # 动态 Y 轴缩放
     zoom_start = pd.Timestamp.today() - pd.Timedelta(days=display_days)
     fig.update_xaxes(range=[zoom_start, df.index[-1]])
     
@@ -199,16 +149,29 @@ def plot_candlestick_plotly(df, ticker, valid_buy_indices, valid_sell_indices, d
     fig.update_layout(title=f"{ticker} 走势与信号{title_suffix}", xaxis_rangeslider_visible=False, height=600, template="plotly_white")
     return fig
 
+
 def render_stock_page():
     st.title("📡 美股：双均线大势过滤 + ATR动态波幅")
+    
+    # 强制重新抓取一次字典并保存在内存里
     ticker_dict = fetch_all_us_tickers()
     
     st.sidebar.header("参数配置 (美股)")
+    
+    # 获取字典中的默认股键值
     default_selections = [k for k, v in ticker_dict.items() if v in ["COIN", "CRCL", "UNH", "UPST", "RDDT", "CRWV", "NVDA", "TSLA"]]
-    selected_display = st.sidebar.multiselect("🔎 搜索美股标的", options=list(ticker_dict.keys()), default=default_selections)
+    
+    # 🌟 提示：这里就是动态搜索框，支持键盘打字过滤全美上万只股票！
+    selected_display = st.sidebar.multiselect(
+        "🔎 搜索美股标的 (支持全市场动态搜索)", 
+        options=list(ticker_dict.keys()), 
+        default=default_selections,
+        help="请点击输入框，直接打字输入你要找的股票代码或公司名称进行动态筛选。"
+    )
+    
     selected_stocks = [ticker_dict[k] for k in selected_display]
 
-    custom_tickers = st.sidebar.text_input("➕ 手动添加美股代码 (用逗号分隔)", "")
+    custom_tickers = st.sidebar.text_input("➕ 找不到？手动添加美股代码 (用逗号分隔)", "")
     if custom_tickers:
         selected_stocks.extend([t.strip().upper() for t in custom_tickers.split(",") if t.strip()])
         selected_stocks = list(set(selected_stocks))
