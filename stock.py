@@ -82,10 +82,14 @@ def process_us_strategy(df, ticker, display_days):
     bull_dip = (df['Close'] >= df['SMA_200']) & (df['ATR_Ratio'] < -2.0)
     bear_plunge = (df['Close'] < df['SMA_200']) & (df['ATR_Ratio'] < -3.0)
 
+    RSI_BUY_THRESHOLD = 30
+    VOL_SPIKE_BUY = 1.2
+    WMSR_BUY_THRESHOLD = -90
+
     df['Buy_Base_Signal'] = (
-        (df['RSI_14'] < 30) &
-        (df['WMSR_14'] < -90) &
-        (df['Vol_Spike'] > 1.2) &
+        (df['RSI_14'] < RSI_BUY_THRESHOLD) &
+        (df['WMSR_14'] < WMSR_BUY_THRESHOLD) &
+        (df['Vol_Spike'] > VOL_SPIKE_BUY) &
         (bull_dip | bear_plunge)
     ).astype(int)
 
@@ -97,7 +101,17 @@ def process_us_strategy(df, ticker, display_days):
             if last_buy_price is None or curr_p <= last_buy_price * 0.90:
                 valid_buy_indices.append(i); last_buy_price, last_buy_idx = curr_p, i
 
-    df['Sell_Base_Signal'] = ((df['RSI_14'] > 75) & (df['Vol_Spike'] > 2.0) & (df['ATR_Ratio'] > 2.0) & (df['WMSR_14'] > -15)).astype(int)
+    RSI_SELL_THRESHOLD = 75
+    VOL_SPIKE_SELL = 2.0
+    ATR_SELL_THRESHOLD = 2.0
+    WMSR_SELL_THRESHOLD = -10
+
+    df['Sell_Base_Signal'] = (
+        (df['RSI_14'] > RSI_SELL_THRESHOLD) & 
+        (df['Vol_Spike'] > VOL_SPIKE_SELL) & 
+        (df['ATR_Ratio'] > ATR_SELL_THRESHOLD) & 
+        (df['WMSR_14'] > WMSR_SELL_THRESHOLD)
+        ).astype(int)
     
     valid_sell_indices, last_sell_price, last_sell_idx = [], None, None
     for i in range(len(df)):
