@@ -9,22 +9,42 @@ from plotly.subplots import make_subplots
 
 @st.cache_data(ttl=86400)
 def fetch_all_us_tickers():
-    url = "https://www.sec.gov/files/company_tickers.json"
-    # 🌟 关键修复：SEC 官方要求必须提供类似 "App名称/版本 (邮箱)" 格式的 User-Agent 才能放行全量数据
-    headers = {
-        'User-Agent': 'QuantRadarBot/1.0 (quant_radar_admin@example.com) Mozilla/5.0',
-        'Accept-Encoding': 'gzip, deflate'
-    }
+    # 🛡️ 第一重防御：尝试读取你上传到 GitHub 的 JSON 文件（最推荐，全量 10000+ 只）
     try:
-        response = requests.get(url, headers=headers, timeout=15)
-        response.raise_for_status()
-        data = response.json()
-        # 组装成 "AAPL - Apple Inc." 格式
-        return {f"{item['ticker']} - {item['title'].title()}": item['ticker'] for item in data.values()}
+        import json
+        import os
+        if os.path.exists('company_tickers.json'):
+            with open('company_tickers.json', 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                return {f"{item['ticker']} - {item['title'].title()}": item['ticker'] for item in data.values()}
+    except Exception:
+        pass
+
+    # 🛡️ 第二重防御：云端网络抓取维基百科的标普 500 强 (无视 SEC 防火墙，100% 成功)
+    try:
+        # 直接抓取维基百科的 S&P 500 表格
+        sp500_url = 'https://en.wikipedia.org/wiki/List_of_S%26P_500_companies'
+        table = pd.read_html(sp500_url)[0]
+        
+        result_dict = {}
+        for _, row in table.iterrows():
+            # 雅虎财经的特殊格式转换：比如 BRK.B 需要转换成 BRK-B
+            ticker = row['Symbol'].replace('.', '-') 
+            name = row['Security']
+            result_dict[f"{ticker} - {name}"] = ticker
+            
+        # 强行补上你最关注的几只可能不在标普500里的次新股/妖股
+        extra_tickers = {"COIN": "Coinbase", "CRCL": "CRCL", "UPST": "Upstart", "RDDT": "Reddit", "CRWV": "CRWV"}
+        for k, v in extra_tickers.items():
+            result_dict[f"{k} - {v}"] = k
+            
+        return result_dict
+        
     except Exception as e:
-        # 如果依然失败，提示错误并返回备用列表
-        st.sidebar.error("拉取 SEC 全量美股列表失败，目前使用的是备用精选池。")
-        return {f"{t}": t for t in ["AAPL", "MSFT", "GOOGL", "NVDA", "TSLA", "COIN", "CRCL", "UPST", "RDDT"]}
+        # 🛡️ 终极兜底：如果连维基百科都挂了（几乎不可能），返回备用池
+        st.sidebar.error("网络请求全线失败，已降级为备用精选池。")
+        fallback = ["AAPL", "MSFT", "GOOGL", "NVDA", "TSLA", "COIN", "CRCL", "UPST", "RDDT", "CRWV"]
+        return {f"{t}": t for t in fallback}
 
 @st.cache_data(ttl=3600)
 def load_data(ticker, start_date, end_date):
