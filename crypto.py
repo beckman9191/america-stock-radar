@@ -144,7 +144,7 @@ def render_crypto_page():
         selected_crypto.extend([t.strip().upper() for t in custom_crypto.split(",") if t.strip()])
         selected_crypto = list(set(selected_crypto))
 
-    display_days_crypto = st.sidebar.number_input("📉 图表展示天数", min_value=7, max_value=2000, value=365, step=10)
+    display_days_crypto = st.sidebar.number_input("📉 图表展示天数", min_value=7, max_value=3000, value=365, step=10)
 
     if st.button("🚀 开始执行 Crypto 扫描与回测", type="primary"):
         if not selected_crypto: st.stop()
