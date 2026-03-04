@@ -210,7 +210,7 @@ def render_stock_page():
         selected_stocks.extend([t.strip().upper() for t in custom_tickers.split(",") if t.strip()])
         selected_stocks = list(set(selected_stocks))
 
-    display_days = st.sidebar.number_input("📉 图表展示与信号提取天数", min_value=7, max_value=2000, value=300, step=10)
+    display_days = st.sidebar.number_input("📉 图表展示与信号提取天数", min_value=7, max_value=3000, value=300, step=10)
 
     if st.button("🚀 开始执行美股扫描", type="primary"):
         if not selected_stocks: 
