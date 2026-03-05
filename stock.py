@@ -169,34 +169,31 @@ def render_stock_page():
     ticker_dict = fetch_all_us_tickers()
     
     # ========================================================
-    # 🌟 核心新增：会话状态管理 (Session State) 用于动态控制下拉框
+    # 🌟 修复：直接初始化并严格绑定 multi_select_ui 到 session_state
     # ========================================================
-    if "selected_stocks_keys" not in st.session_state:
+    if "multi_select_ui" not in st.session_state:
         # 初次加载时的默认精选股
-        st.session_state.selected_stocks_keys = [k for k, v in ticker_dict.items() if v in ["COIN", "CRCL", "UNH", "UPST", "RDDT", "CRWV", "NVDA", "TSLA"]]
+        st.session_state["multi_select_ui"] = [k for k, v in ticker_dict.items() if v in ["COIN", "CRCL", "UNH", "UPST", "RDDT", "CRWV", "NVDA", "TSLA"]]
     
     # ------------------ 左侧边栏：一键寻宝区 ------------------
     st.sidebar.markdown("---")
     st.sidebar.subheader("🔮 一键全市场寻宝")
-    st.sidebar.caption("自动扫描字典内股票，把近期出现【大底买入】信号的标的加入搜索框。")
+    st.sidebar.caption("自动扫描字典内股票，把近期出现【大底买入】信号的标的追加到搜索框。")
     
     scan_days = st.sidebar.number_input("寻找最近 N 天内的买点", min_value=1, max_value=60, value=15)
-    scan_limit = st.sidebar.number_input("最大扫描数量 (按首字母顺序)", min_value=100, max_value=20000, value=1000, step=500, help="全量 10000+ 扫描可能需要较长时间")
+    scan_limit = st.sidebar.number_input("最大扫描数量 (按首字母顺序)", min_value=100, max_value=20000, value=1000, step=500)
 
     if st.sidebar.button("⚡ 开始自动全市场扫雷", type="secondary"):
         with st.spinner(f"正在启动雅虎财经批量下载核心，准备扫描 {scan_limit} 只股票..."):
             found_keys = []
             scan_items = list(ticker_dict.items())[:scan_limit]
             
-            # 为了扫描得快，只拉取过去一年半的数据即可
             start_scan = (datetime.today() - timedelta(days=500)).strftime('%Y-%m-%d')
             end_scan = (datetime.today() + timedelta(days=1)).strftime('%Y-%m-%d')
             
-            # 提取纯 ticker 列表进行多线程批量下载
             tickers_to_dl = [v for k, v in scan_items]
             
             try:
-                # 🌟 核心提速技术：Yfinance 批量并发下载，速度提升百倍！
                 bulk_df = yf.download(tickers_to_dl, start=start_scan, end=end_scan, group_by='ticker', threads=True, progress=False)
                 
                 my_bar = st.sidebar.progress(0)
@@ -204,10 +201,9 @@ def render_stock_page():
                 
                 for i, (key, ticker) in enumerate(scan_items):
                     my_bar.progress((i + 1) / len(scan_items))
-                    status_text.text(f"正在进行量化策略研判: {i+1}/{len(scan_items)} ({ticker})")
+                    status_text.text(f"正在研判: {i+1}/{len(scan_items)} ({ticker})")
                     
                     try:
-                        # 从批量下载的数据池中切片出单只股票
                         if len(tickers_to_dl) == 1:
                             df_single = bulk_df.copy()
                         else:
@@ -215,8 +211,7 @@ def render_stock_page():
                             
                         df_single.dropna(how='all', inplace=True)
                         
-                        if len(df_single) > 200: # 严格要求有200日均线
-                            # 传入扫描天数提取信号
+                        if len(df_single) > 200: 
                             _, _, _, buy_records, _ = process_us_strategy(df_single, ticker, scan_days)
                             if buy_records:
                                 found_keys.append(key)
@@ -227,12 +222,16 @@ def render_stock_page():
                 status_text.empty()
                 
                 if found_keys:
-                    # 将发现的牛股替换掉当前的下拉框内容！
-                    st.session_state.selected_stocks_keys = found_keys
-                    st.sidebar.success(f"🎉 寻宝完成！共发现 {len(found_keys)} 只符合大底形态的标的，已自动为您添加至搜索框！")
-                    st.rerun() # 🌟 强制刷新页面，让 UI 更新
+                    # 🌟 修复逻辑：将新发现的股票【追加】到当前的搜索框中，并利用字典特性去重，保持插入顺序
+                    current_selections = st.session_state["multi_select_ui"]
+                    new_selections = list(dict.fromkeys(current_selections + found_keys))
+                    
+                    # 直接修改绑定的 key
+                    st.session_state["multi_select_ui"] = new_selections
+                    st.sidebar.success(f"🎉 寻宝完成！共发现 {len(found_keys)} 只标的，已自动追加至下方搜索框！")
+                    st.rerun() # 强制刷新页面，让 UI 组件重绘
                 else:
-                    st.sidebar.info("未发现符合条件的标的，可能行情较好无底可抄，或请尝试加大扫描数量。")
+                    st.sidebar.info("未发现符合条件的标的，可能近期无底可抄，或请尝试加大扫描数量。")
                     
             except Exception as e:
                 st.sidebar.error(f"批量下载失败: {e}")
@@ -242,19 +241,14 @@ def render_stock_page():
     # ------------------ 左侧边栏：常规分析区 ------------------
     st.sidebar.header("🎯 图表分析配置")
     
-    # 注意这里：default 绑定了会话状态 st.session_state.selected_stocks_keys
+    # 🌟 修复逻辑：干掉 default，直接绑定 key。Streamlit 会自动拿 session_state["multi_select_ui"] 的值作为填充内容
     selected_display = st.sidebar.multiselect(
         "🔎 搜索美股标的 (支持全市场动态搜索)", 
         options=list(ticker_dict.keys()), 
-        default=st.session_state.selected_stocks_keys,
-        key="multi_select_ui", # 加个独立的key防止冲突
+        key="multi_select_ui", 
         help="请点击输入框，直接打字输入你要找的股票代码或公司名称进行动态筛选。"
     )
     
-    # 当用户手动修改搜索框时，同步回 session_state
-    if selected_display != st.session_state.selected_stocks_keys:
-        st.session_state.selected_stocks_keys = selected_display
-
     selected_stocks = [ticker_dict[k] for k in selected_display]
 
     custom_tickers = st.sidebar.text_input("➕ 找不到？手动添加美股代码 (用逗号分隔)", "")
@@ -308,3 +302,4 @@ def render_stock_page():
         with tab2:
             for fig in charts_rendered: 
                 st.plotly_chart(fig, use_container_width=True)
+
