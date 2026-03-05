@@ -9,7 +9,7 @@ from plotly.subplots import make_subplots
 
 @st.cache_data(ttl=86400)
 def fetch_all_us_tickers():
-    # 🛡️ 第一重防御：尝试读取你上传到 GitHub 的 JSON 文件（最推荐，全量 10000+ 只）
+    # 🛡️ 第一重防御：尝试读取你上传的 JSON 文件（全量 10000+ 只）
     try:
         import json
         import os
@@ -20,31 +20,10 @@ def fetch_all_us_tickers():
     except Exception:
         pass
 
-    # 🛡️ 第二重防御：云端网络抓取维基百科的标普 500 强 (无视 SEC 防火墙，100% 成功)
-    try:
-        # 直接抓取维基百科的 S&P 500 表格
-        sp500_url = 'https://en.wikipedia.org/wiki/List_of_S%26P_500_companies'
-        table = pd.read_html(sp500_url)[0]
-        
-        result_dict = {}
-        for _, row in table.iterrows():
-            # 雅虎财经的特殊格式转换：比如 BRK.B 需要转换成 BRK-B
-            ticker = row['Symbol'].replace('.', '-') 
-            name = row['Security']
-            result_dict[f"{ticker} - {name}"] = ticker
-            
-        # 强行补上你最关注的几只可能不在标普500里的次新股/妖股
-        extra_tickers = {"COIN": "Coinbase", "CRCL": "CRCL", "UPST": "Upstart", "RDDT": "Reddit", "CRWV": "CRWV"}
-        for k, v in extra_tickers.items():
-            result_dict[f"{k} - {v}"] = k
-            
-        return result_dict
-        
-    except Exception as e:
-        # 🛡️ 终极兜底：如果连维基百科都挂了（几乎不可能），返回备用池
-        st.sidebar.error("网络请求全线失败，已降级为备用精选池。")
-        fallback = ["AAPL", "MSFT", "GOOGL", "NVDA", "TSLA", "COIN", "CRCL", "UPST", "RDDT", "CRWV"]
-        return {f"{t}": t for t in fallback}
+    # 🛡️ 终极兜底：如果没有 JSON 文件，直接返回备用精选池
+    st.sidebar.warning("⚠️ 未检测到全市场股票字典(company_tickers.json)，已降级为精选备用池。")
+    fallback = ["AAPL", "MSFT", "GOOGL", "NVDA", "TSLA", "COIN", "CRCL", "UPST", "RDDT", "CRWV"]
+    return {f"{t}": t for t in fallback}
 
 @st.cache_data(ttl=3600)
 def load_data(ticker, start_date, end_date):
@@ -185,24 +164,97 @@ def plot_candlestick_plotly(df, ticker, valid_buy_indices, valid_sell_indices, d
 
 
 def render_stock_page():
-    st.title("📡 美股：双均线大势过滤 + ATR动态波幅")
+    st.title("📡 美股量化雷达：双均线过滤 + 全市场寻宝")
     
-    # 强制重新抓取一次字典并保存在内存里
     ticker_dict = fetch_all_us_tickers()
     
-    st.sidebar.header("参数配置 (美股)")
+    # ========================================================
+    # 🌟 核心新增：会话状态管理 (Session State) 用于动态控制下拉框
+    # ========================================================
+    if "selected_stocks_keys" not in st.session_state:
+        # 初次加载时的默认精选股
+        st.session_state.selected_stocks_keys = [k for k, v in ticker_dict.items() if v in ["COIN", "CRCL", "UNH", "UPST", "RDDT", "CRWV", "NVDA", "TSLA"]]
     
-    # 获取字典中的默认股键值
-    default_selections = [k for k, v in ticker_dict.items() if v in ["COIN", "CRCL", "UNH", "UPST", "RDDT", "CRWV", "NVDA", "TSLA"]]
+    # ------------------ 左侧边栏：一键寻宝区 ------------------
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("🔮 一键全市场寻宝")
+    st.sidebar.caption("自动扫描字典内股票，把近期出现【大底买入】信号的标的加入搜索框。")
     
-    # 🌟 提示：这里就是动态搜索框，支持键盘打字过滤全美上万只股票！
+    scan_days = st.sidebar.number_input("寻找最近 N 天内的买点", min_value=1, max_value=60, value=15)
+    scan_limit = st.sidebar.number_input("最大扫描数量 (按首字母顺序)", min_value=100, max_value=20000, value=1000, step=500, help="全量 10000+ 扫描可能需要较长时间")
+
+    if st.sidebar.button("⚡ 开始自动全市场扫雷", type="secondary"):
+        with st.spinner(f"正在启动雅虎财经批量下载核心，准备扫描 {scan_limit} 只股票..."):
+            found_keys = []
+            scan_items = list(ticker_dict.items())[:scan_limit]
+            
+            # 为了扫描得快，只拉取过去一年半的数据即可
+            start_scan = (datetime.today() - timedelta(days=500)).strftime('%Y-%m-%d')
+            end_scan = (datetime.today() + timedelta(days=1)).strftime('%Y-%m-%d')
+            
+            # 提取纯 ticker 列表进行多线程批量下载
+            tickers_to_dl = [v for k, v in scan_items]
+            
+            try:
+                # 🌟 核心提速技术：Yfinance 批量并发下载，速度提升百倍！
+                bulk_df = yf.download(tickers_to_dl, start=start_scan, end=end_scan, group_by='ticker', threads=True, progress=False)
+                
+                my_bar = st.sidebar.progress(0)
+                status_text = st.sidebar.empty()
+                
+                for i, (key, ticker) in enumerate(scan_items):
+                    my_bar.progress((i + 1) / len(scan_items))
+                    status_text.text(f"正在进行量化策略研判: {i+1}/{len(scan_items)} ({ticker})")
+                    
+                    try:
+                        # 从批量下载的数据池中切片出单只股票
+                        if len(tickers_to_dl) == 1:
+                            df_single = bulk_df.copy()
+                        else:
+                            df_single = bulk_df[ticker].copy()
+                            
+                        df_single.dropna(how='all', inplace=True)
+                        
+                        if len(df_single) > 200: # 严格要求有200日均线
+                            # 传入扫描天数提取信号
+                            _, _, _, buy_records, _ = process_us_strategy(df_single, ticker, scan_days)
+                            if buy_records:
+                                found_keys.append(key)
+                    except Exception:
+                        continue
+                        
+                my_bar.empty()
+                status_text.empty()
+                
+                if found_keys:
+                    # 将发现的牛股替换掉当前的下拉框内容！
+                    st.session_state.selected_stocks_keys = found_keys
+                    st.sidebar.success(f"🎉 寻宝完成！共发现 {len(found_keys)} 只符合大底形态的标的，已自动为您添加至搜索框！")
+                    st.rerun() # 🌟 强制刷新页面，让 UI 更新
+                else:
+                    st.sidebar.info("未发现符合条件的标的，可能行情较好无底可抄，或请尝试加大扫描数量。")
+                    
+            except Exception as e:
+                st.sidebar.error(f"批量下载失败: {e}")
+
+    st.sidebar.markdown("---")
+    
+    # ------------------ 左侧边栏：常规分析区 ------------------
+    st.sidebar.header("🎯 图表分析配置")
+    
+    # 注意这里：default 绑定了会话状态 st.session_state.selected_stocks_keys
     selected_display = st.sidebar.multiselect(
         "🔎 搜索美股标的 (支持全市场动态搜索)", 
         options=list(ticker_dict.keys()), 
-        default=default_selections,
+        default=st.session_state.selected_stocks_keys,
+        key="multi_select_ui", # 加个独立的key防止冲突
         help="请点击输入框，直接打字输入你要找的股票代码或公司名称进行动态筛选。"
     )
     
+    # 当用户手动修改搜索框时，同步回 session_state
+    if selected_display != st.session_state.selected_stocks_keys:
+        st.session_state.selected_stocks_keys = selected_display
+
     selected_stocks = [ticker_dict[k] for k in selected_display]
 
     custom_tickers = st.sidebar.text_input("➕ 找不到？手动添加美股代码 (用逗号分隔)", "")
@@ -212,7 +264,8 @@ def render_stock_page():
 
     display_days = st.sidebar.number_input("📉 图表展示与信号提取天数", min_value=7, max_value=3000, value=300, step=10)
 
-    if st.button("🚀 开始执行美股扫描", type="primary"):
+    # ------------------ 右侧主内容区 ------------------
+    if st.button("🚀 开始生成图表与信号流水", type="primary"):
         if not selected_stocks: 
             st.warning("⚠️ 请至少选择一只股票进行扫描！")
             st.stop()
