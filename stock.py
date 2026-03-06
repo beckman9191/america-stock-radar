@@ -137,12 +137,34 @@ def plot_candlestick_plotly(df, ticker, valid_buy_indices, valid_sell_indices, d
     fig.add_trace(go.Bar(x=df.index, y=df['Volume'], name='Volume', marker_color='gray'), row=2, col=1)
 
     if valid_buy_indices:
-        buy_dates, buy_prices = df.iloc[valid_buy_indices].index, df['Low'].iloc[valid_buy_indices] * 0.95
-        fig.add_trace(go.Scatter(x=buy_dates, y=buy_prices, mode='markers', marker=dict(symbol='triangle-up', color='magenta', size=16, line=dict(color='black', width=1.5)), name='BUY (买入)'), row=1, col=1)
+        buy_dates = df.iloc[valid_buy_indices].index
+        buy_draw_prices = df['Low'].iloc[valid_buy_indices] * 0.95 # 画图的视觉 Y 坐标（防遮挡）
+        real_buy_prices = df['Close'].iloc[valid_buy_indices]      # 悬停显示的真实收盘价
+        
+        fig.add_trace(go.Scatter(
+            x=buy_dates, 
+            y=buy_draw_prices, 
+            mode='markers', 
+            marker=dict(symbol='triangle-up', color='magenta', size=16, line=dict(color='black', width=1.5)), 
+            name='BUY (买入)',
+            customdata=real_buy_prices, # 把真实价格传给底层
+            hovertemplate='<b>大底买入</b><br>日期: %{x|%Y-%m-%d}<br>真实触发价(收盘): %{customdata:.2f}<extra></extra>'
+        ), row=1, col=1)
         
     if valid_sell_indices:
-        sell_dates, sell_prices = df.iloc[valid_sell_indices].index, df['High'].iloc[valid_sell_indices] * 1.05
-        fig.add_trace(go.Scatter(x=sell_dates, y=sell_prices, mode='markers', marker=dict(symbol='triangle-down', color='cyan', size=16, line=dict(color='black', width=1.5)), name='SELL (卖出)'), row=1, col=1)
+        sell_dates = df.iloc[valid_sell_indices].index
+        sell_draw_prices = df['High'].iloc[valid_sell_indices] * 1.05 # 画图的视觉 Y 坐标（防遮挡）
+        real_sell_prices = df['Close'].iloc[valid_sell_indices]       # 悬停显示的真实收盘价
+        
+        fig.add_trace(go.Scatter(
+            x=sell_dates, 
+            y=sell_draw_prices, 
+            mode='markers', 
+            marker=dict(symbol='triangle-down', color='cyan', size=16, line=dict(color='black', width=1.5)), 
+            name='SELL (卖出)',
+            customdata=real_sell_prices, # 把真实价格传给底层
+            hovertemplate='<b>高位逃顶</b><br>日期: %{x|%Y-%m-%d}<br>真实逃顶价(收盘): %{customdata:.2f}<extra></extra>'
+        ), row=1, col=1)
 
     zoom_start = pd.Timestamp.today() - pd.Timedelta(days=display_days)
     fig.update_xaxes(range=[zoom_start, df.index[-1]])
@@ -302,4 +324,5 @@ def render_stock_page():
         with tab2:
             for fig in charts_rendered: 
                 st.plotly_chart(fig, use_container_width=True)
+
 
