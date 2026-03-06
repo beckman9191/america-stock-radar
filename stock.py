@@ -167,7 +167,9 @@ def plot_candlestick_plotly(df, ticker, valid_buy_indices, valid_sell_indices, d
         ), row=1, col=1)
 
     zoom_start = pd.Timestamp.today() - pd.Timedelta(days=display_days)
-    fig.update_xaxes(range=[zoom_start, df.index[-1]])
+    # 🌟 核心修复：给右侧强制留出 5 天的空白缓冲区，防止今天的信号被切掉
+    zoom_end = df.index[-1] + pd.Timedelta(days=5)
+    fig.update_xaxes(range=[zoom_start, zoom_end])
     
     visible_df = df[df.index >= zoom_start]
     if not visible_df.empty:
@@ -324,5 +326,6 @@ def render_stock_page():
         with tab2:
             for fig in charts_rendered: 
                 st.plotly_chart(fig, use_container_width=True)
+
 
 
