@@ -174,10 +174,27 @@ def plot_candlestick_plotly(df, ticker, valid_buy_indices, valid_sell_indices, d
     visible_df = df[df.index >= zoom_start]
     if not visible_df.empty:
         y_max, y_min = visible_df['High'].max(), visible_df['Low'].min()
+        
+        # 1. 包容均线
         if 'SMA_20' in visible_df.columns and not visible_df['SMA_20'].dropna().empty:
             y_max, y_min = max(y_max, visible_df['SMA_20'].dropna().max()), min(y_min, visible_df['SMA_20'].dropna().min())
         if 'SMA_200' in visible_df.columns and not visible_df['SMA_200'].dropna().empty:
             y_max, y_min = max(y_max, visible_df['SMA_200'].dropna().max()), min(y_min, visible_df['SMA_200'].dropna().min())
+            
+        # 🌟 2. 核心修复：包容那些被偏移了 5% 的买卖点三角形
+        visible_buys = [idx for idx in valid_buy_indices if df.index[idx] >= zoom_start]
+        if visible_buys:
+            # 找到可视范围内最低的那个买点三角形的 y 坐标
+            min_buy_marker = (df['Low'].iloc[visible_buys] * 0.95).min()
+            y_min = min(y_min, min_buy_marker) # 如果它更低，就把它设为 y 轴下限
+            
+        visible_sells = [idx for idx in valid_sell_indices if df.index[idx] >= zoom_start]
+        if visible_sells:
+            # 找到可视范围内最高的那个卖点三角形的 y 坐标
+            max_sell_marker = (df['High'].iloc[visible_sells] * 1.05).max()
+            y_max = max(y_max, max_sell_marker) # 如果它更高，就把它设为 y 轴上限
+
+        # 3. 再加上少许边界留白，防止紧贴边缘
         padding = (y_max - y_min) * 0.05
         if padding == 0: padding = y_max * 0.05
         fig.update_yaxes(range=[y_min - padding, y_max + padding], row=1, col=1)
@@ -326,6 +343,7 @@ def render_stock_page():
         with tab2:
             for fig in charts_rendered: 
                 st.plotly_chart(fig, use_container_width=True)
+
 
 
 
