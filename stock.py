@@ -27,10 +27,23 @@ def fetch_all_us_tickers():
 
 @st.cache_data(ttl=3600)
 def load_data(ticker, start_date, end_date):
-    df = yf.download(ticker, start=start_date, end=end_date, progress=False)
+    # 强制让 yfinance 不要保留无关的时区信息和空行
+    df = yf.download(ticker, start=start_date, end=end_date, progress=False, ignore_tz=True)
+    
+    # 防御 1：如果雅虎抽风返回空数据，不要犹豫，直接返回空DF，后面会拦截
+    if df.empty:
+        return df
+        
+    # 处理多层表头
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
+        
     df.index = pd.to_datetime(df.index)
+    
+    # 🌟 防御 2：彻底剔除雅虎给次新股填充的无聊 NaN 空行！
+    # 如果某一天这只股票根本没收盘价（比如还没上市），直接把这行砍掉
+    df = df.dropna(subset=['Close'])
+    
     return df
 
 def process_us_strategy(df, ticker, display_days):
@@ -343,6 +356,7 @@ def render_stock_page():
         with tab2:
             for fig in charts_rendered: 
                 st.plotly_chart(fig, use_container_width=True)
+
 
 
 
