@@ -19,9 +19,7 @@ LANG_DICT = {
         "trend_down": "Downtrend",
         "chart_title_suffix": " (⚠️上市仅 {days} 天，大势过滤降级为上市至今全局均线)",
         "trend_signals": "{ticker} 走势与信号",
-        #"buy": "BUY (买入)",
-        "sell": "SELL (卖出)",
-        #"hover_buy": "<b>大底买入</b><br>日期: %{x|%Y-%m-%d}<br>真实触发价(收盘): %{customdata:.2f}<extra></extra>",
+        "sell": "SELL (大顶卖出)",
         "hover_sell": "<b>高位逃顶</b><br>日期: %{x|%Y-%m-%d}<br>真实逃顶价(收盘): %{customdata:.2f}<extra></extra>",
         "buy_bull": "BUY (牛市回调)",
         "buy_bear": "BUY (熊市暴跌)",
@@ -37,23 +35,37 @@ LANG_DICT = {
         "scan_success": "🎉 寻宝完成！共发现 {count} 只标的，已自动追加至下方搜索框！",
         "scan_fail": "未发现符合条件的标的，可能近期无底可抄，或请尝试加大扫描数量。",
         "err_dl": "批量下载失败: {e}",
-        "config_header": "🎯 图表分析配置",
+        "config_header": "🎯 图表分析与回测配置",
         "search_label": "🔎 搜索美股标的 (支持全市场动态搜索)",
         "search_help": "请点击输入框，直接打字输入你要找的股票代码或公司名称进行动态筛选。",
         "manual_add": "➕ 找不到？手动添加美股代码 (用逗号分隔)",
-        "display_days": "📉 图表展示与信号提取天数",
-        "btn_generate": "🚀 开始生成图表与信号流水",
+        "display_days": "📉 图表展示与回测提取天数",
+        "slippage_label": "💸 单边交易滑点/手续费 (%)",
+        "btn_generate": "🚀 开始生成图表与硬核回测",
         "warn_empty": "⚠️ 请至少选择一只股票进行扫描！",
+        "prog_bench": "正在拉取 S&P 500 基准数据...",
         "prog_init": "正在初始化雷达...",
-        "prog_analyze": "正在分析 {ticker} ...",
+        "prog_analyze": "正在分析与回测 {ticker} ...",
         "toast_skip": "⚠️ {ticker} 数据不足20天，已跳过。",
         "err_process": "处理 {ticker} 时出错: {e}",
         "tab_logs": "📋 交易信号汇总",
         "tab_charts": "📈 K线走势图表",
+        "tab_backtest": "🏆 全仓策略回测报告",
         "sub_buy": "🚨 指定展示期内【大底买入】信号",
         "info_no_buy": "展示期内未触发买入信号。",
         "sub_sell": "🎯 指定展示期内【高位逃顶】信号",
-        "info_no_sell": "展示期内未触发卖出信号。"
+        "info_no_sell": "展示期内未触发卖出信号。",
+        "bt_desc": "注：回测基于【全仓进出模型】（遇到第一个买点100%全仓买入，持仓期间忽略后续买点，遇到卖点100%全仓抛出）。基准对照为标普500 (SPY)。",
+        "col_ticker": "标的",
+        "col_strat_ret": "全仓策略收益",
+        "col_strat_sr": "策略夏普",
+        "col_strat_mdd": "策略回撤",
+        "col_asset_ret": "个股死拿收益",
+        "col_asset_sr": "死拿夏普",
+        "col_asset_mdd": "死拿回撤",
+        "col_spy_ret": "SPY收益",
+        "col_spy_sr": "SPY夏普",
+        "col_spy_mdd": "SPY回撤"
     },
     "EN": {
         "title": "📡 US Stocks Quant Radar: Dual MA + Scanner",
@@ -63,9 +75,7 @@ LANG_DICT = {
         "trend_down": "Downtrend",
         "chart_title_suffix": " (⚠️Listed only {days} days, SMA downgraded to Since-IPO)",
         "trend_signals": "{ticker} Trend & Signals",
-        #"buy": "BUY",
         "sell": "SELL",
-        #"hover_buy": "<b>Bottom Buy</b><br>Date: %{x|%Y-%m-%d}<br>Trigger Price (Close): %{customdata:.2f}<extra></extra>",
         "hover_sell": "<b>Top Sell</b><br>Date: %{x|%Y-%m-%d}<br>Escape Price (Close): %{customdata:.2f}<extra></extra>",
         "buy_bull": "BUY (Bull Dip)",
         "buy_bear": "BUY (Bear Plunge)",
@@ -81,23 +91,37 @@ LANG_DICT = {
         "scan_success": "🎉 Scan complete! Found {count} targets, auto-appended to the search box below!",
         "scan_fail": "No matching targets found. Market might be hot, or try increasing the scan limit.",
         "err_dl": "Bulk download failed: {e}",
-        "config_header": "🎯 Chart Configurations",
+        "config_header": "🎯 Chart & Backtest Config",
         "search_label": "🔎 Search US Stocks (Dynamic market search)",
         "search_help": "Click the input box and type a ticker or company name to filter dynamically.",
         "manual_add": "➕ Not found? Add tickers manually (comma separated)",
-        "display_days": "📉 Chart Display & Signal Extraction Days",
-        "btn_generate": "🚀 Generate Charts & Signal Logs",
+        "display_days": "📉 Display & Backtest Days",
+        "slippage_label": "💸 Trade Cost/Slippage per side (%)",
+        "btn_generate": "🚀 Generate Charts & Run Backtest",
         "warn_empty": "⚠️ Please select at least one stock to scan!",
+        "prog_bench": "Fetching S&P 500 Benchmark...",
         "prog_init": "Initializing Radar...",
-        "prog_analyze": "Analyzing {ticker}...",
+        "prog_analyze": "Analyzing & Backtesting {ticker}...",
         "toast_skip": "⚠️ {ticker} has less than 20 days of data, skipped.",
         "err_process": "Error processing {ticker}: {e}",
         "tab_logs": "📋 Trading Signals Summary",
         "tab_charts": "📈 Candlestick Charts",
+        "tab_backtest": "🏆 All-In Backtest Report",
         "sub_buy": "🚨 'Bottom Buy' Signals in Range",
         "info_no_buy": "No buy signals triggered in range.",
         "sub_sell": "🎯 'Top Sell' Signals in Range",
-        "info_no_sell": "No sell signals triggered in range."
+        "info_no_sell": "No sell signals triggered in range.",
+        "bt_desc": "Note: Backtest assumes an [All-In] model. Buys 100% on the first buy signal (ignores subsequent buys while holding), sells 100% on a sell signal. SPY is the benchmark.",
+        "col_ticker": "Ticker",
+        "col_strat_ret": "Strat Ret",
+        "col_strat_sr": "Strat SR",
+        "col_strat_mdd": "Strat MDD",
+        "col_asset_ret": "Asset Ret",
+        "col_asset_sr": "Asset SR",
+        "col_asset_mdd": "Asset MDD",
+        "col_spy_ret": "SPY Ret",
+        "col_spy_sr": "SPY SR",
+        "col_spy_mdd": "SPY MDD"
     }
 }
 
@@ -127,8 +151,6 @@ def fetch_all_us_tickers(lang):
 def load_data(ticker, start_date, end_date):
     df = yf.download(ticker, start=start_date, end=end_date, progress=False, ignore_tz=True)
     
-    # 🌟 终极防御：如果雅虎返回空数据或数据太少，直接“掀桌子”抛出异常！
-    # 这样 Streamlit 就【绝对不会】把这个失败的空结果存进缓存里！
     if df is None or df.empty or len(df) <= 20:
         raise ValueError("雅虎财经暂时未返回有效数据 (可能遭遇网络波动或限流)")
         
@@ -139,6 +161,77 @@ def load_data(ticker, start_date, end_date):
     df = df.dropna(subset=['Close'])
     
     return df
+
+# =========================================================
+# 🌟 纯净全仓回测引擎 (All-In)
+# =========================================================
+def calculate_drawdown(equity_series):
+    roll_max = equity_series.cummax()
+    drawdowns = equity_series / roll_max - 1.0
+    return drawdowns.min() if not pd.isna(drawdowns.min()) else 0.0
+
+def calc_stats(series):
+    if len(series) < 2 or series.iloc[0] == 0:
+        return 0.0, 0.0, 0.0
+    tot_ret = series.iloc[-1] / series.iloc[0] - 1.0
+    rets = series.pct_change().dropna()
+    sr = (rets.mean() / rets.std() * np.sqrt(252)) if rets.std() != 0 else 0.0
+    mdd = calculate_drawdown(series)
+    return tot_ret, sr, mdd
+
+def run_backtest(df, valid_buy_indices, valid_sell_indices, benchmark_df, slippage_pct, display_days):
+    cutoff_date = pd.Timestamp(datetime.today().date() - timedelta(days=display_days))
+    bt_df = df[df.index >= cutoff_date].copy()
+    
+    if bt_df.empty:
+        return None
+
+    buy_dates = set(df.index[valid_buy_indices])
+    sell_dates = set(df.index[valid_sell_indices])
+    
+    cash = 1.0
+    pos = 0.0
+    eq_curve = []
+    
+    # 状态机：全仓进出 (All-In)
+    for i in range(len(bt_df)):
+        date = bt_df.index[i]
+        price = bt_df['Close'].iloc[i]
+        
+        # 触发买入（仅当空仓时才起效，忽略持仓期的二次买点）
+        if date in buy_dates and pos == 0:
+            pos = (cash * (1 - slippage_pct)) / price
+            cash = 0.0
+        # 触发卖出（仅当有仓位时起效）
+        elif date in sell_dates and pos > 0:
+            cash = pos * price * (1 - slippage_pct)
+            pos = 0.0
+            
+        eq_curve.append(cash + pos * price)
+        
+    bt_df['Equity'] = eq_curve
+    
+    # 计算各项统计指标
+    s_r, s_sr, s_mdd = calc_stats(bt_df['Equity'])
+    
+    asset_curve = bt_df['Close'] / bt_df['Close'].iloc[0]
+    a_r, a_sr, a_mdd = calc_stats(asset_curve)
+
+    # 计算 SPY 基准表现
+    if benchmark_df is not None and not benchmark_df.empty:
+        bench_aligned = benchmark_df['Close'].reindex(bt_df.index).ffill().bfill()
+        if not bench_aligned.empty and not pd.isna(bench_aligned.iloc[0]):
+            spy_r, spy_sr, spy_mdd = calc_stats(bench_aligned / bench_aligned.iloc[0])
+        else:
+            spy_r, spy_sr, spy_mdd = 0.0, 0.0, 0.0
+    else:
+        spy_r, spy_sr, spy_mdd = 0.0, 0.0, 0.0
+
+    return {
+        "strat_ret": s_r, "strat_sr": s_sr, "strat_mdd": s_mdd,
+        "asset_ret": a_r, "asset_sr": a_sr, "asset_mdd": a_mdd,
+        "spy_ret": spy_r, "spy_sr": spy_sr, "spy_mdd": spy_mdd
+    }
 
 def process_us_strategy(df, ticker, display_days):
     t = get_t()
@@ -245,15 +338,10 @@ def plot_candlestick_plotly(df, ticker, valid_buy_indices, valid_sell_indices, d
         
     fig.add_trace(go.Bar(x=df.index, y=df['Volume'], name='Volume', marker_color='gray'), row=2, col=1)
 
-    # =========================================================
-    # 🌟 核心升级：拆分牛熊买点，使用不同颜色和提示语
-    # =========================================================
     if valid_buy_indices:
-        # 分离牛市和熊市的买点索引
         bull_buys = [idx for idx in valid_buy_indices if df['Close'].iloc[idx] >= df['SMA_200'].iloc[idx]]
         bear_buys = [idx for idx in valid_buy_indices if df['Close'].iloc[idx] < df['SMA_200'].iloc[idx]]
         
-        # 1. 绘制牛市回调买点 (洋红色)
         if bull_buys:
             buy_dates_bull = df.iloc[bull_buys].index
             buy_draw_prices_bull = df['Low'].iloc[bull_buys] * 0.95 
@@ -269,7 +357,6 @@ def plot_candlestick_plotly(df, ticker, valid_buy_indices, valid_sell_indices, d
                 hovertemplate=t.get("hover_buy_bull", "<b>Bull Buy</b><br>Date: %{x|%Y-%m-%d}<br>Price: %{customdata:.2f}<extra></extra>")
             ), row=1, col=1)
             
-        # 2. 绘制熊市暴跌买点 (显眼的暗金/橙色，警示风险)
         if bear_buys:
             buy_dates_bear = df.iloc[bear_buys].index
             buy_draw_prices_bear = df['Low'].iloc[bear_buys] * 0.95 
@@ -285,7 +372,6 @@ def plot_candlestick_plotly(df, ticker, valid_buy_indices, valid_sell_indices, d
                 hovertemplate=t.get("hover_buy_bear", "<b>Bear Buy</b><br>Date: %{x|%Y-%m-%d}<br>Price: %{customdata:.2f}<extra></extra>")
             ), row=1, col=1)
             
-    # 卖出点保持原样 (青色向下箭头)
     if valid_sell_indices:
         sell_dates = df.iloc[valid_sell_indices].index
         sell_draw_prices = df['High'].iloc[valid_sell_indices] * 1.05 
@@ -340,13 +426,11 @@ def render_stock_page():
     
     st.title(t["title"])
     
-    # 获取数据源（强制传入当前语言用于报错提示的翻译）
     ticker_dict = fetch_all_us_tickers(lang)
     
     if "multi_select_ui" not in st.session_state:
         st.session_state["multi_select_ui"] = [k for k, v in ticker_dict.items() if v in ["COIN", "CRCL", "UNH", "UPST", "RDDT", "CRWV", "NVDA", "TSLA"]]
     
-    # ------------------ 左侧边栏：一键寻宝区 ------------------
     st.sidebar.markdown("---")
     st.sidebar.subheader(t["scanner_header"])
     st.sidebar.caption(t["scanner_cap"])
@@ -366,7 +450,6 @@ def render_stock_page():
             
             try:
                 bulk_df = yf.download(tickers_to_dl, start=start_scan, end=end_scan, group_by='ticker', threads=True, progress=False)
-                
                 my_bar = st.sidebar.progress(0)
                 status_text = st.sidebar.empty()
                 
@@ -405,8 +488,6 @@ def render_stock_page():
                 st.sidebar.error(t["err_dl"].format(e=e))
 
     st.sidebar.markdown("---")
-    
-    # ------------------ 左侧边栏：常规分析区 ------------------
     st.sidebar.header(t["config_header"])
     
     selected_display = st.sidebar.multiselect(
@@ -424,8 +505,9 @@ def render_stock_page():
         selected_stocks = list(set(selected_stocks))
 
     display_days = st.sidebar.number_input(t["display_days"], min_value=7, max_value=3000, value=300, step=10)
+    
+    slippage_pct = st.sidebar.number_input(t["slippage_label"], min_value=0.0, max_value=5.0, value=0.1, step=0.05) / 100.0
 
-    # ------------------ 右侧主内容区 ------------------
     if st.button(t["btn_generate"], type="primary"):
         if not selected_stocks: 
             st.warning(t["warn_empty"])
@@ -434,9 +516,17 @@ def render_stock_page():
         start_date = (datetime.today() - timedelta(days=max(730, display_days + 300))).strftime('%Y-%m-%d')
         end_date = (datetime.today() + timedelta(days=1)).strftime('%Y-%m-%d')
         
-        all_buys, all_sells, charts_rendered = [], [], []
-        my_bar = st.progress(0, text=t["prog_init"])
-        tab1, tab2 = st.tabs([t["tab_logs"], t["tab_charts"]])
+        all_buys, all_sells, charts_rendered, backtest_results = [], [], [], []
+        
+        my_bar = st.progress(0, text=t["prog_bench"])
+        try:
+            spy_df = load_data("SPY", start_date, end_date)
+        except:
+            spy_df = pd.DataFrame()
+
+        my_bar.progress(0, text=t["prog_init"])
+        
+        tab1, tab2, tab3 = st.tabs([t["tab_charts"], t["tab_logs"], t["tab_backtest"]])
 
         for i, ticker in enumerate(selected_stocks):
             my_bar.progress((i + 1) / len(selected_stocks), text=t["prog_analyze"].format(ticker=ticker))
@@ -445,15 +535,26 @@ def render_stock_page():
                 if len(df) <= 20: 
                     st.toast(t["toast_skip"].format(ticker=ticker), icon='⚠️')
                     continue
+                
                 df, v_buy, v_sell, buys, sells = process_us_strategy(df, ticker, display_days)
                 all_buys.extend(buys); all_sells.extend(sells)
                 charts_rendered.append(plot_candlestick_plotly(df, ticker, v_buy, v_sell, display_days))
+                
+                bt_stats = run_backtest(df, v_buy, v_sell, spy_df, slippage_pct, display_days)
+                if bt_stats:
+                    bt_stats['Ticker'] = ticker
+                    backtest_results.append(bt_stats)
+                    
             except Exception as e: 
                 st.error(t["err_process"].format(ticker=ticker, e=e))
                 
         my_bar.empty()
 
         with tab1:
+            for fig in charts_rendered: 
+                st.plotly_chart(fig, use_container_width=True)
+                
+        with tab2:
             st.subheader(t["sub_buy"])
             if all_buys: 
                 st.dataframe(pd.DataFrame(all_buys).sort_values(by=['Date', 'Ticker'], ascending=[False, True]), use_container_width=True)
@@ -466,6 +567,26 @@ def render_stock_page():
             else: 
                 st.info(t["info_no_sell"])
 
-        with tab2:
-            for fig in charts_rendered: 
-                st.plotly_chart(fig, use_container_width=True)
+        with tab3:
+            st.caption(t["bt_desc"])
+            if backtest_results:
+                bt_df = pd.DataFrame(backtest_results)
+                
+                # 重命名列映射
+                bt_df = bt_df.rename(columns={
+                    'Ticker': t['col_ticker'],
+                    'strat_ret': t['col_strat_ret'], 'strat_sr': t['col_strat_sr'], 'strat_mdd': t['col_strat_mdd'],
+                    'asset_ret': t['col_asset_ret'], 'asset_sr': t['col_asset_sr'], 'asset_mdd': t['col_asset_mdd'],
+                    'spy_ret': t['col_spy_ret'], 'spy_sr': t['col_spy_sr'], 'spy_mdd': t['col_spy_mdd']
+                })
+                
+                format_dict = {
+                    t['col_strat_ret']: "{:.2%}", t['col_asset_ret']: "{:.2%}", t['col_spy_ret']: "{:.2%}",
+                    t['col_strat_mdd']: "{:.2%}", t['col_asset_mdd']: "{:.2%}", t['col_spy_mdd']: "{:.2%}",
+                    t['col_strat_sr']: "{:.2f}", t['col_asset_sr']: "{:.2f}", t['col_spy_sr']: "{:.2f}"
+                }
+                
+                # 纯数据渲染
+                st.dataframe(bt_df.style.format(format_dict), use_container_width=True)
+            else:
+                st.info("No backtest data available for the selected range.")
