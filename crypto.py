@@ -39,8 +39,12 @@ LANG_DICT = {
         "phase_bear": "熊市暴跌",
         "candle": "K线",
         "sma200_new": "均线_上市至今({days}天)",
-        "buy_marker": "BUY (买入)",
+        # 🌟 新增：牛熊买点分离的翻译
+        "buy_bull": "BUY (牛市回调)",
+        "buy_bear": "BUY (熊市接刀)",
         "sell_marker": "SELL (卖出)",
+        "hover_buy_bull": "<b>牛市回调买入</b><br>日期: %{x|%Y-%m-%d}<br>真实触发价(收盘): %{customdata:.2f}<extra></extra>",
+        "hover_buy_bear": "<b>熊市暴跌接刀</b><br>日期: %{x|%Y-%m-%d}<br>真实触发价(收盘): %{customdata:.2f}<extra></extra>",
         "chart_title": "{ticker} Crypto Radar V3",
         "chart_title_suffix": " (⚠️数据仅 {days} 天)"
     },
@@ -73,8 +77,12 @@ LANG_DICT = {
         "phase_bear": "Bear Market Plunge",
         "candle": "Candle",
         "sma200_new": "SMA_ALL({days}d)",
-        "buy_marker": "BUY",
+        # 🌟 新增：牛熊买点分离的翻译
+        "buy_bull": "BUY (Bull Dip)",
+        "buy_bear": "BUY (Bear Plunge)",
         "sell_marker": "SELL",
+        "hover_buy_bull": "<b>Bull Market Dip Buy</b><br>Date: %{x|%Y-%m-%d}<br>Trigger Price: %{customdata:.2f}<extra></extra>",
+        "hover_buy_bear": "<b>Bear Market Plunge Buy</b><br>Date: %{x|%Y-%m-%d}<br>Trigger Price: %{customdata:.2f}<extra></extra>",
         "chart_title": "{ticker} Crypto Radar V3",
         "chart_title_suffix": " (⚠️Only {days} days of data)"
     }
@@ -88,7 +96,9 @@ def get_t():
 
 @st.cache_data(ttl=3600)
 def load_data(ticker, start_date, end_date):
-    df = yf.download(ticker, start=start_date, end=end_date, progress=False)
+    df = yf.download(ticker, start=start_date, end=end_date, progress=False, ignore_tz=True)
+    if df.empty:
+        return df
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
     df.index = pd.to_datetime(df.index)
@@ -190,15 +200,65 @@ def plot_candlestick_plotly(df, ticker, valid_buy_indices, valid_sell_indices, d
         
     fig.add_trace(go.Bar(x=df.index, y=df['Volume'], name='Volume', marker_color='gray'), row=2, col=1)
 
+    # =========================================================
+    # 🌟 核心升级：拆分牛熊买点，使用不同颜色和提示语
+    # =========================================================
     if valid_buy_indices:
-        buy_dates, buy_prices = df.iloc[valid_buy_indices].index, df['Low'].iloc[valid_buy_indices] * 0.95
-        fig.add_trace(go.Scatter(x=buy_dates, y=buy_prices, mode='markers', marker=dict(symbol='triangle-up', color='magenta', size=16, line=dict(color='black', width=1.5)), name=t["buy_marker"]), row=1, col=1)
+        bull_buys = [idx for idx in valid_buy_indices if df['Close'].iloc[idx] >= df['SMA_200'].iloc[idx]]
+        bear_buys = [idx for idx in valid_buy_indices if df['Close'].iloc[idx] < df['SMA_200'].iloc[idx]]
+        
+        # 1. 绘制牛市回调买点 (洋红色)
+        if bull_buys:
+            buy_dates_bull = df.iloc[bull_buys].index
+            buy_draw_prices_bull = df['Low'].iloc[bull_buys] * 0.95 
+            real_buy_prices_bull = df['Close'].iloc[bull_buys]      
+            
+            fig.add_trace(go.Scatter(
+                x=buy_dates_bull, 
+                y=buy_draw_prices_bull, 
+                mode='markers', 
+                marker=dict(symbol='triangle-up', color='magenta', size=16, line=dict(color='black', width=1.5)), 
+                name=t["buy_bull"],
+                customdata=real_buy_prices_bull,
+                hovertemplate=t["hover_buy_bull"]
+            ), row=1, col=1)
+            
+        # 2. 绘制熊市暴跌买点 (暗金/橙色)
+        if bear_buys:
+            buy_dates_bear = df.iloc[bear_buys].index
+            buy_draw_prices_bear = df['Low'].iloc[bear_buys] * 0.95 
+            real_buy_prices_bear = df['Close'].iloc[bear_buys]      
+            
+            fig.add_trace(go.Scatter(
+                x=buy_dates_bear, 
+                y=buy_draw_prices_bear, 
+                mode='markers', 
+                marker=dict(symbol='triangle-up', color='darkorange', size=16, line=dict(color='black', width=1.5)), 
+                name=t["buy_bear"],
+                customdata=real_buy_prices_bear,
+                hovertemplate=t["hover_buy_bear"]
+            ), row=1, col=1)
+
+    # 卖出点保持原样 (青色向下箭头)
     if valid_sell_indices:
-        sell_dates, sell_prices = df.iloc[valid_sell_indices].index, df['High'].iloc[valid_sell_indices] * 1.05
-        fig.add_trace(go.Scatter(x=sell_dates, y=sell_prices, mode='markers', marker=dict(symbol='triangle-down', color='cyan', size=16, line=dict(color='black', width=1.5)), name=t["sell_marker"]), row=1, col=1)
+        sell_dates = df.iloc[valid_sell_indices].index
+        sell_draw_prices = df['High'].iloc[valid_sell_indices] * 1.05
+        real_sell_prices = df['Close'].iloc[valid_sell_indices] 
+        
+        fig.add_trace(go.Scatter(
+            x=sell_dates, 
+            y=sell_draw_prices, 
+            mode='markers', 
+            marker=dict(symbol='triangle-down', color='cyan', size=16, line=dict(color='black', width=1.5)), 
+            name=t["sell_marker"],
+            customdata=real_sell_prices,
+            # Crypto 借用美股的卖点提示模板，稍微简化一下
+            hovertemplate='<b>Top Sell</b><br>Date: %{x|%Y-%m-%d}<br>Price: %{customdata:.2f}<extra></extra>' if st.session_state.get('lang') == 'EN' else '<b>高位逃顶</b><br>日期: %{x|%Y-%m-%d}<br>真实逃顶价(收盘): %{customdata:.2f}<extra></extra>'
+        ), row=1, col=1)
 
     zoom_start = pd.Timestamp.today() - pd.Timedelta(days=display_days)
-    fig.update_xaxes(range=[zoom_start, df.index[-1]])
+    zoom_end = df.index[-1] + pd.Timedelta(days=5)
+    fig.update_xaxes(range=[zoom_start, zoom_end])
     
     visible_df = df[df.index >= zoom_start]
     if not visible_df.empty:
@@ -207,6 +267,17 @@ def plot_candlestick_plotly(df, ticker, valid_buy_indices, valid_sell_indices, d
             y_max, y_min = max(y_max, visible_df['SMA_20'].dropna().max()), min(y_min, visible_df['SMA_20'].dropna().min())
         if 'SMA_200' in visible_df.columns and not visible_df['SMA_200'].dropna().empty:
             y_max, y_min = max(y_max, visible_df['SMA_200'].dropna().max()), min(y_min, visible_df['SMA_200'].dropna().min())
+            
+        visible_buys = [idx for idx in valid_buy_indices if df.index[idx] >= zoom_start]
+        if visible_buys:
+            min_buy_marker = (df['Low'].iloc[visible_buys] * 0.95).min()
+            y_min = min(y_min, min_buy_marker) 
+            
+        visible_sells = [idx for idx in valid_sell_indices if df.index[idx] >= zoom_start]
+        if visible_sells:
+            max_sell_marker = (df['High'].iloc[visible_sells] * 1.05).max()
+            y_max = max(y_max, max_sell_marker) 
+
         padding = (y_max - y_min) * 0.05
         if padding == 0: padding = y_max * 0.05
         fig.update_yaxes(range=[y_min - padding, y_max + padding], row=1, col=1)
