@@ -126,12 +126,18 @@ def fetch_all_us_tickers(lang):
 @st.cache_data(ttl=3600)
 def load_data(ticker, start_date, end_date):
     df = yf.download(ticker, start=start_date, end=end_date, progress=False, ignore_tz=True)
-    if df.empty:
-        return df
+    
+    # 🌟 终极防御：如果雅虎返回空数据或数据太少，直接“掀桌子”抛出异常！
+    # 这样 Streamlit 就【绝对不会】把这个失败的空结果存进缓存里！
+    if df is None or df.empty or len(df) <= 20:
+        raise ValueError("雅虎财经暂时未返回有效数据 (可能遭遇网络波动或限流)")
+        
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
+        
     df.index = pd.to_datetime(df.index)
     df = df.dropna(subset=['Close'])
+    
     return df
 
 def process_us_strategy(df, ticker, display_days):
