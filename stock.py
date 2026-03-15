@@ -19,10 +19,14 @@ LANG_DICT = {
         "trend_down": "Downtrend",
         "chart_title_suffix": " (⚠️上市仅 {days} 天，大势过滤降级为上市至今全局均线)",
         "trend_signals": "{ticker} 走势与信号",
-        "buy": "BUY (买入)",
+        #"buy": "BUY (买入)",
         "sell": "SELL (卖出)",
-        "hover_buy": "<b>大底买入</b><br>日期: %{x|%Y-%m-%d}<br>真实触发价(收盘): %{customdata:.2f}<extra></extra>",
+        #"hover_buy": "<b>大底买入</b><br>日期: %{x|%Y-%m-%d}<br>真实触发价(收盘): %{customdata:.2f}<extra></extra>",
         "hover_sell": "<b>高位逃顶</b><br>日期: %{x|%Y-%m-%d}<br>真实逃顶价(收盘): %{customdata:.2f}<extra></extra>",
+        "buy_bull": "BUY (牛市回调)",
+        "buy_bear": "BUY (熊市暴跌)",
+        "hover_buy_bull": "<b>牛市回调买入</b><br>日期: %{x|%Y-%m-%d}<br>真实触发价(收盘): %{customdata:.2f}<extra></extra>",
+        "hover_buy_bear": "<b>熊市暴跌接刀</b><br>日期: %{x|%Y-%m-%d}<br>真实触发价(收盘): %{customdata:.2f}<extra></extra>",
         "scanner_header": "🔮 一键全市场寻宝",
         "scanner_cap": "自动扫描字典内股票，把近期出现【大底买入】信号的标的追加到搜索框。",
         "scan_days": "寻找最近 N 天内的买点",
@@ -59,10 +63,14 @@ LANG_DICT = {
         "trend_down": "Downtrend",
         "chart_title_suffix": " (⚠️Listed only {days} days, SMA downgraded to Since-IPO)",
         "trend_signals": "{ticker} Trend & Signals",
-        "buy": "BUY",
+        #"buy": "BUY",
         "sell": "SELL",
-        "hover_buy": "<b>Bottom Buy</b><br>Date: %{x|%Y-%m-%d}<br>Trigger Price (Close): %{customdata:.2f}<extra></extra>",
+        #"hover_buy": "<b>Bottom Buy</b><br>Date: %{x|%Y-%m-%d}<br>Trigger Price (Close): %{customdata:.2f}<extra></extra>",
         "hover_sell": "<b>Top Sell</b><br>Date: %{x|%Y-%m-%d}<br>Escape Price (Close): %{customdata:.2f}<extra></extra>",
+        "buy_bull": "BUY (Bull Dip)",
+        "buy_bear": "BUY (Bear Plunge)",
+        "hover_buy_bull": "<b>Bull Market Dip Buy</b><br>Date: %{x|%Y-%m-%d}<br>Trigger Price: %{customdata:.2f}<extra></extra>",
+        "hover_buy_bear": "<b>Bear Market Plunge Buy</b><br>Date: %{x|%Y-%m-%d}<br>Trigger Price: %{customdata:.2f}<extra></extra>",
         "scanner_header": "🔮 One-Click Market Scanner",
         "scanner_cap": "Auto-scan dictionary and append stocks with recent 'Bottom Buy' signals to the search box.",
         "scan_days": "Scan for buys within last N days",
@@ -231,21 +239,47 @@ def plot_candlestick_plotly(df, ticker, valid_buy_indices, valid_sell_indices, d
         
     fig.add_trace(go.Bar(x=df.index, y=df['Volume'], name='Volume', marker_color='gray'), row=2, col=1)
 
+    # =========================================================
+    # 🌟 核心升级：拆分牛熊买点，使用不同颜色和提示语
+    # =========================================================
     if valid_buy_indices:
-        buy_dates = df.iloc[valid_buy_indices].index
-        buy_draw_prices = df['Low'].iloc[valid_buy_indices] * 0.95 
-        real_buy_prices = df['Close'].iloc[valid_buy_indices]      
+        # 分离牛市和熊市的买点索引
+        bull_buys = [idx for idx in valid_buy_indices if df['Close'].iloc[idx] >= df['SMA_200'].iloc[idx]]
+        bear_buys = [idx for idx in valid_buy_indices if df['Close'].iloc[idx] < df['SMA_200'].iloc[idx]]
         
-        fig.add_trace(go.Scatter(
-            x=buy_dates, 
-            y=buy_draw_prices, 
-            mode='markers', 
-            marker=dict(symbol='triangle-up', color='magenta', size=16, line=dict(color='black', width=1.5)), 
-            name=t["buy"],
-            customdata=real_buy_prices,
-            hovertemplate=t["hover_buy"]
-        ), row=1, col=1)
-        
+        # 1. 绘制牛市回调买点 (洋红色)
+        if bull_buys:
+            buy_dates_bull = df.iloc[bull_buys].index
+            buy_draw_prices_bull = df['Low'].iloc[bull_buys] * 0.95 
+            real_buy_prices_bull = df['Close'].iloc[bull_buys]      
+            
+            fig.add_trace(go.Scatter(
+                x=buy_dates_bull, 
+                y=buy_draw_prices_bull, 
+                mode='markers', 
+                marker=dict(symbol='triangle-up', color='magenta', size=16, line=dict(color='black', width=1.5)), 
+                name=t.get("buy_bull", "BUY (Bull)"),
+                customdata=real_buy_prices_bull,
+                hovertemplate=t.get("hover_buy_bull", "<b>Bull Buy</b><br>Date: %{x|%Y-%m-%d}<br>Price: %{customdata:.2f}<extra></extra>")
+            ), row=1, col=1)
+            
+        # 2. 绘制熊市暴跌买点 (显眼的暗金/橙色，警示风险)
+        if bear_buys:
+            buy_dates_bear = df.iloc[bear_buys].index
+            buy_draw_prices_bear = df['Low'].iloc[bear_buys] * 0.95 
+            real_buy_prices_bear = df['Close'].iloc[bear_buys]      
+            
+            fig.add_trace(go.Scatter(
+                x=buy_dates_bear, 
+                y=buy_draw_prices_bear, 
+                mode='markers', 
+                marker=dict(symbol='triangle-up', color='darkorange', size=16, line=dict(color='black', width=1.5)), 
+                name=t.get("buy_bear", "BUY (Bear)"),
+                customdata=real_buy_prices_bear,
+                hovertemplate=t.get("hover_buy_bear", "<b>Bear Buy</b><br>Date: %{x|%Y-%m-%d}<br>Price: %{customdata:.2f}<extra></extra>")
+            ), row=1, col=1)
+            
+    # 卖出点保持原样 (青色向下箭头)
     if valid_sell_indices:
         sell_dates = df.iloc[valid_sell_indices].index
         sell_draw_prices = df['High'].iloc[valid_sell_indices] * 1.05 
